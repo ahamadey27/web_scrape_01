@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Indeed",
+    "url": "https://www.indeed.com/jobs?q=",
+    "searchTerms": ["music", "audio", "sound designer", "sound design"],
+    "selectors": {
+      "jobContainer": ".job_seen_beacon",
+      "title": ".jobTitle",
+      "company": ".companyName",
+      "location": ".companyLocation",
+      "link": ".jcs-JobTitle"
+    }
+  },
+  {
+    "name": "LinkedIn",
+    "url": "https://www.linkedin.com/jobs/search/?keywords=",
+    "searchTerms": ["music", "audio", "sound designer", "sound design"],
+    "selectors": {
+      "jobContainer": ".job-search-card",
+      "title": ".base-search-card__title",
+      "company": ".base-search-card__subtitle",
+      "location": ".job-search-card__location",
+      "link": ".base-card__full-link"
+    }
+  }
+]
