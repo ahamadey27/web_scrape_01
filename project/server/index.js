@@ -107,7 +107,8 @@ const scrapeJobs = async (site) => {
       const response = await axios.get(searchUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
       
       const $ = cheerio.load(response.data);
@@ -168,66 +169,99 @@ const runScraper = async () => {
   // Save updated jobs
   saveJobs(allJobs);
   console.log(`Scraping complete. Total jobs: ${allJobs.length}`);
+  
+  return allJobs.length;
 };
 
 // API endpoints
 app.get('/api/jobs', (req, res) => {
-  const jobs = loadJobs();
-  res.json(jobs);
+  try {
+    const jobs = loadJobs();
+    res.json(jobs);
+  } catch (error) {
+    console.error('Error serving jobs:', error);
+    res.status(500).json({ error: 'Failed to load jobs' });
+  }
 });
 
 app.get('/api/sites', (req, res) => {
-  const sites = loadSites();
-  res.json(sites);
+  try {
+    const sites = loadSites();
+    res.json(sites);
+  } catch (error) {
+    console.error('Error serving sites:', error);
+    res.status(500).json({ error: 'Failed to load sites' });
+  }
 });
 
 app.post('/api/sites', (req, res) => {
-  const sites = loadSites();
-  const newSite = req.body;
-  
-  // Validate required fields
-  if (!newSite.name || !newSite.url || !newSite.searchTerms || !newSite.selectors) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    const sites = loadSites();
+    const newSite = req.body;
+    
+    // Validate required fields
+    if (!newSite.name || !newSite.url || !newSite.searchTerms || !newSite.selectors) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    sites.push(newSite);
+    saveSites(sites);
+    res.status(201).json(newSite);
+  } catch (error) {
+    console.error('Error adding site:', error);
+    res.status(500).json({ error: 'Failed to add site' });
   }
-  
-  sites.push(newSite);
-  saveSites(sites);
-  res.status(201).json(newSite);
 });
 
 app.put('/api/sites/:index', (req, res) => {
-  const sites = loadSites();
-  const index = parseInt(req.params.index);
-  
-  if (isNaN(index) || index < 0 || index >= sites.length) {
-    return res.status(404).json({ error: 'Site not found' });
+  try {
+    const sites = loadSites();
+    const index = parseInt(req.params.index);
+    
+    if (isNaN(index) || index < 0 || index >= sites.length) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    sites[index] = req.body;
+    saveSites(sites);
+    res.json(sites[index]);
+  } catch (error) {
+    console.error('Error updating site:', error);
+    res.status(500).json({ error: 'Failed to update site' });
   }
-  
-  sites[index] = req.body;
-  saveSites(sites);
-  res.json(sites[index]);
 });
 
 app.delete('/api/sites/:index', (req, res) => {
-  const sites = loadSites();
-  const index = parseInt(req.params.index);
-  
-  if (isNaN(index) || index < 0 || index >= sites.length) {
-    return res.status(404).json({ error: 'Site not found' });
+  try {
+    const sites = loadSites();
+    const index = parseInt(req.params.index);
+    
+    if (isNaN(index) || index < 0 || index >= sites.length) {
+      return res.status(404).json({ error: 'Site not found' });
+    }
+    
+    sites.splice(index, 1);
+    saveSites(sites);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting site:', error);
+    res.status(500).json({ error: 'Failed to delete site' });
   }
-  
-  sites.splice(index, 1);
-  saveSites(sites);
-  res.json({ success: true });
 });
 
 app.post('/api/scrape', async (req, res) => {
   try {
-    await runScraper();
-    res.json({ success: true });
+    const jobCount = await runScraper();
+    res.json({ success: true, jobCount });
   } catch (error) {
+    console.error('Error during scrape:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Add a health check endpoint
+app.head('/api/jobs', (req, res) => {
+  res.status(200).end();
 });
 
 // Schedule daily scraping (at midnight)
@@ -235,9 +269,27 @@ cron.schedule('0 0 * * *', () => {
   runScraper();
 });
 
-app.listen(PORT, () => {
+// Handle startup errors
+const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   
   // Run initial scrape on server start
   // runScraper();
+});
+
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Please close other applications using this port or change the port number.`);
+  } else {
+    console.error('Server error:', error);
+  }
+});
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down server gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });

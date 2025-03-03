@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Site } from '../types';
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, AlertCircle, Play } from 'lucide-react';
 
 interface SiteManagerProps {
   sites: Site[];
   onAddSite: (site: Site) => Promise<void>;
   onUpdateSite: (index: number, site: Site) => Promise<void>;
   onDeleteSite: (index: number) => Promise<void>;
+  serverRunning: boolean;
+  onStartServer: () => void;
 }
 
 const defaultSelectors = {
@@ -28,7 +30,9 @@ const SiteManager: React.FC<SiteManagerProps> = ({
   sites, 
   onAddSite, 
   onUpdateSite, 
-  onDeleteSite 
+  onDeleteSite,
+  serverRunning,
+  onStartServer
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -85,6 +89,25 @@ const SiteManager: React.FC<SiteManagerProps> = ({
     setIsAdding(false);
   };
 
+  if (!serverRunning && sites.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6 text-center">
+        <AlertCircle size={48} className="mx-auto mb-4 text-yellow-500" />
+        <h3 className="text-xl font-semibold mb-2">Server Not Running</h3>
+        <p className="text-gray-600 mb-4">
+          You need to start the server to configure scraping sites.
+        </p>
+        <button
+          onClick={onStartServer}
+          className="inline-flex items-center bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+        >
+          <Play size={16} className="mr-2" />
+          View Server Instructions
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
@@ -92,13 +115,35 @@ const SiteManager: React.FC<SiteManagerProps> = ({
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+            disabled={!serverRunning}
+            className="flex items-center gap-1 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-indigo-300"
           >
             <Plus size={16} />
             Add Site
           </button>
         )}
       </div>
+
+      {!serverRunning && sites.length > 0 && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <AlertCircle size={20} className="text-yellow-500 mr-2 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-yellow-700">Server not running</p>
+              <p className="text-yellow-600 mt-1">
+                You can view existing sites, but you cannot add, edit, or delete sites until the server is running.
+              </p>
+              <button
+                onClick={onStartServer}
+                className="mt-2 inline-flex items-center text-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded transition-colors"
+              >
+                <Play size={14} className="mr-1" />
+                View server instructions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isAdding && (
         <div className="mb-8 p-4 border border-gray-200 rounded-lg">
@@ -244,13 +289,15 @@ const SiteManager: React.FC<SiteManagerProps> = ({
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEdit(index)}
-                        className="text-indigo-600 hover:text-indigo-900"
+                        disabled={!serverRunning}
+                        className="text-indigo-600 hover:text-indigo-900 disabled:text-gray-400"
                       >
                         <Edit size={18} />
                       </button>
                       <button
                         onClick={() => onDeleteSite(index)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={!serverRunning}
+                        className="text-red-600 hover:text-red-900 disabled:text-gray-400"
                       >
                         <Trash2 size={18} />
                       </button>
